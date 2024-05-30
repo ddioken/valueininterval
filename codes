@@ -1,0 +1,54 @@
+#This is for checking the intervals and finding if there is any value in between those intervals and pasting the "found" for intervals. Intervals column is Interval and location column is Location.
+# First, ensure the 'Location_Point' and 'Locations' are correctly formatted. Let's say i have a list of intervals and locations. Intervals are formatted like chrX:X-Y and the locations are chrX:X.
+df['Location_Point'] = df['Locations'].apply(lambda x: int(x.split(':')[1]) if pd.notna(x) else None)
+
+# Function to check for matches more efficiently
+def efficient_match_check(df):
+    # Create an empty series for the "Found" results
+    found_results = pd.Series([''] * len(df))
+    # Iterate only once over each interval
+    for idx, interval in df.iterrows():
+        if pd.notna(interval['Interval_Chrom']):
+            # Filter locations by matching chromosome and check if they fall within the interval
+            mask = (df['Location_Chrom'] == interval['Interval_Chrom']) & \
+                   (df['Location_Point'] >= interval['Interval_Start']) & \
+                   (df['Location_Point'] <= interval['Interval_End'])
+            # If any location matches the conditions, mark as 'Found'
+            if df[mask].any():
+                found_results[idx] = 'Found'
+    return found_results
+
+# Apply the efficient function to the DataFrame
+df['Found'] = efficient_match_check(df)
+
+output_csv_path = '/mnt/data/updated_intervals_and_locations.csv'
+df.to_csv(output_csv_path, index=False)
+
+  #now, switch the code to first looking at the locations and then checking the intervals.
+  # Efficient approach using vectorized operations
+# Building a dictionary of intervals by chromosome for faster access
+
+  interval_dict = {}
+for idx, row in df.iterrows():
+    chrom = row['Interval_Chrom']
+    if chrom not in interval_dict:
+        interval_dict[chrom] = []
+    interval_dict[chrom].append((row['Interval_Start'], row['Interval_End']))
+
+# Function to check if any location is within any interval of the same chromosome
+def check_location_in_intervals(location_row):
+    chrom = location_row['Location_Chrom']
+    point = location_row['Location_Point']
+    if chrom in interval_dict:
+        for start, end in interval_dict[chrom]:
+            if start <= point <= end:
+                return 'Found'
+    return ''
+
+# Apply this check to the DataFrame
+df['Location_Found_in_Interval'] = df.apply(check_location_in_intervals, axis=1)
+output_csv_path = '/mnt/data/updated_intervals_and_locations.csv'
+df.to_csv(output_csv_path, index=False)
+  
+
+  
